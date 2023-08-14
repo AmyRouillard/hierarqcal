@@ -51,38 +51,49 @@ def contract(t0, t1=None, indices=None):
     return result
 
 
+##############################################
+##############################################
+
 e_2=(np.array([1, 0]), np.array([0, 1]))
 e_3=(np.array([1, 0, 0]), np.array([0, 1, 0]), np.array([0, 0, 1]))
 
-
 def canonical_reshape(psi):
     canonical_indices = sp.factorint(psi.size)
-    canonical_indices = [k for k in canonical_indices.keys() for i in range(canonical_indices[k])]
+    canonical_indices = [k for k in canonical_indices.keys() for _ in range(canonical_indices[k])]
     # reshape psi into a tensor of canonical indices
     return psi.reshape(*canonical_indices)
 
 def contract_tensors(A, i_A, B, i_B):
-    # reorder the indices of A so the i_A is the last index
-    A = np.moveaxis(A, i_A, -1)
+    if isinstance(i_A, int):
+        i_A = [i_A]
+    if isinstance(i_B, int):
+        i_B = [i_B]
+
+    A = np.moveaxis(A, i_A, [i for i in range(len(i_A))] )
     # reorder the indices of B so the i_B is the first index
-    B = np.moveaxis(B, i_B, 0)
-    # reshape A and B and matrix multiple A and B
-    return A.reshape(A.size//A.shape[-1], A.shape[-1]) @ B.reshape(B.shape[-1], B.size//B.shape[-1])
+    B = np.moveaxis(B, i_B, [i for i in range(len(i_B))])
 
-CN_m = sp.Matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
+    n_A = np.prod([A.shape[i] for i in range(-len(i_A),0,1)])
+    n_B = np.prod([B.shape[i] for i in range(0,len(i_B),1)])
+    return canonical_reshape(A.reshape(n_A, A.size//n_A).T @ B.reshape(n_B, B.size//n_B))
 
-contract(CN_m)
+CN_m = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
+CN_m = canonical_reshape(CN_m)
+eye = canonical_reshape(np.eye(2,2))
 
-psi = np.kron(e_2[0],np.kron(e_3[0],e_2[1]))
-psi = canonical_reshape(psi)
+x = contract_tensors(CN_m, [1,3], eye,[0, 1])
+# contract(CN_m, np.eye(2), indices = [0,0])
 
-phi = np.kron(e_3[1],e_2[0])
-phi = canonical_reshape(phi)
+# psi = np.kron(e_2[0],np.kron(e_3[0],e_2[1]))
+# psi = canonical_reshape(psi)
+
+# phi = np.kron(e_3[1],e_2[0])
+# phi = canonical_reshape(phi)
 
 # inner product of psi and phi
-A = psi.reshape(psi.size//phi.size,phi.size) @ phi.reshape(phi.size)
+# A = psi.reshape(psi.size//phi.size,phi.size) @ phi.reshape(phi.size)
 
 
-psi_A = e_2[0].reshape(2,) @ (psi.reshape(2, psi.size//4, 2) @ e_2[0].reshape(2,) )
+# psi_A = e_2[0].reshape(2,) @ (psi.reshape(2, psi.size//4, 2) @ e_2[0].reshape(2,) )
 
 print()

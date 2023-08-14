@@ -8,12 +8,16 @@ from hierarqcal import (
     Qpivot,
     plot_circuit,
     plot_motif,
+    contract,
     get_tensor_as_f,
     Qunitary,
 )
 import numpy as np
 import sympy as sp
 import itertools as it
+# time code
+import time
+
 
 
 def get_probabilities(psi, basis_vectors=(np.array([1, 0]), np.array([0, 1]))):
@@ -34,6 +38,27 @@ def get_probabilities(psi, basis_vectors=(np.array([1, 0]), np.array([0, 1]))):
         M = np.outer(t, t)
         probs[bitstring] = np.abs(np.conj(psi).T @ np.conj(M).T @ M @ psi)
     return probs
+
+def canonical_reshape(psi):
+    canonical_indices = sp.factorint(psi.size)
+    canonical_indices = [k for k in canonical_indices.keys() for _ in range(canonical_indices[k])]
+    # reshape psi into a tensor of canonical indices
+    return psi.reshape(*canonical_indices)
+
+def contract_tensors(A, i_A, B, i_B):
+    if isinstance(i_A, int):
+        i_A = [i_A]
+    if isinstance(i_B, int):
+        i_B = [i_B]
+
+    A = np.moveaxis(A, i_A, [i for i in range(len(i_A))] )
+    # reorder the indices of B so the i_B is the first index
+    B = np.moveaxis(B, i_B, [i for i in range(len(i_B))])
+
+    n_A = np.prod([A.shape[i] for i in range(-len(i_A),0,1)])
+    n_B = np.prod([B.shape[i] for i in range(0,len(i_B),1)])
+    return canonical_reshape(A.reshape(n_A, A.size//n_A).T @ B.reshape(n_B, B.size//n_B))
+
 
 
 H_m = (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])
@@ -65,7 +90,7 @@ toffoli = (
 U_psi = Qcycle(mapping=H)
 # Unitary to prepare the target state |T>
 
-n = 8
+n = 10
 # Mask ancillary qubits
 ancilla_str = "0" + "01" * (n - 3) + "00"
 maskAncillas = Qmask(ancilla_str)
@@ -93,22 +118,32 @@ grover = U_oracle + U_defuse
 
 tensors = [np.array([1, 0], dtype=np.complex128)] *(2*n-3)
 # Initialise the circuit and prepare the initial state |psi>
-N = 5 #int((np.pi / 2 / np.arctan(1 / np.sqrt(2**n)) - 1) / 2)
+N = int((np.pi / 2 / np.arctan(1 / np.sqrt(2**n)) - 1) / 2)
 
 groverCircuit = (
     Qinit([i for i in range(2*n-3)], tensors=tensors) + maskAncillas + U_psi + grover*N
 )
 
+ancilla_indices = [i for i, a in enumerate(ancilla_str) if a == '1']
+ancilla_state = canonical_reshape(np.array([1]+[0]*(2**(n-3)-1)))
+
+# start timing 
+start = time.time()
+
 psi = groverCircuit()
 
-# trace over the third qubit in psi
-psi = np.trace(psi.reshape(2, 2, 2, 2, 2, 2, 2, 2), axis1=2, axis2=4)
-
-
-# compute the absolute value of the probability amplitudes
+psi = contract_tensors(psi, ancilla_indices, ancilla_state, [i for i in range(n-3)])
 probs = get_probabilities(psi.reshape(psi.size))
-# print the probabilities
-for bitstring, prob in probs.items():
-    print(f"|{bitstring}>: {prob:.3f}")
 
+# stop timing
+end = time.time()
+print(f"Time taken: {end-start:.3f}s")
+
+theshold = 0.001
+for bitstring, prob in probs.items():
+    if prob > theshold: 
+        print(f"|{bitstring}>: {prob:.3f}")
+
+print(2*n-3)
+print(f"{1 -np.conj(psi.reshape(psi.size)).T @  psi.reshape(psi.size)}")
 print("hi")
