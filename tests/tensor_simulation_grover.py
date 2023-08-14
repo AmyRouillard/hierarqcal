@@ -49,7 +49,6 @@ X = Qunitary(get_tensor_as_f(X_m), 0, 1)
 CP = lambda x: Qunitary(get_tensor_as_f(CP_m), arity=2, symbols=[x])
 CN = Qunitary(get_tensor_as_f(CN_m), 0, 2)
 
-
 h_bottom = Qpivot("*1", mapping=H)
 phase_pivot = Qpivot("*1", merge_within="01", mapping=CP(-np.pi / 2))
 cnot_phase_cnot = (
@@ -65,8 +64,10 @@ toffoli = (
 # Unitary to prepare the state |psi>
 U_psi = Qcycle(mapping=H)
 # Unitary to prepare the target state |T>
+
+n = 8
 # Mask ancillary qubits
-ancilla_str = "00100"
+ancilla_str = "0" + "01" * (n - 3) + "00"
 maskAncillas = Qmask(ancilla_str)
 unmask_ancillas = Qunmask("previous")
 # Multicontrolled Z gate
@@ -90,11 +91,24 @@ U_defuse = U_psi + U_reflect_0 + U_psi
 # Grover operator
 grover = U_oracle + U_defuse
 
-tensors = [np.array([1, 0], dtype=np.complex256)] * 5
+tensors = [np.array([1, 0], dtype=np.complex128)] *(2*n-3)
 # Initialise the circuit and prepare the initial state |psi>
+N = 5 #int((np.pi / 2 / np.arctan(1 / np.sqrt(2**n)) - 1) / 2)
+
 groverCircuit = (
-    Qinit([i for i in range(5)], tensors=tensors) + maskAncillas + U_psi + grover
+    Qinit([i for i in range(2*n-3)], tensors=tensors) + maskAncillas + U_psi + grover*N
 )
 
 psi = groverCircuit()
+
+# trace over the third qubit in psi
+psi = np.trace(psi.reshape(2, 2, 2, 2, 2, 2, 2, 2), axis1=2, axis2=4)
+
+
+# compute the absolute value of the probability amplitudes
+probs = get_probabilities(psi.reshape(psi.size))
+# print the probabilities
+for bitstring, prob in probs.items():
+    print(f"|{bitstring}>: {prob:.3f}")
+
 print("hi")
