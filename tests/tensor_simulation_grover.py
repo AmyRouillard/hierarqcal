@@ -10,6 +10,8 @@ from hierarqcal import (
     plot_motif,
     contract,
     get_tensor_as_f,
+    contract_tensors,
+    canonical_reshape,
     Qunitary,
 )
 import numpy as np
@@ -38,27 +40,6 @@ def get_probabilities(psi, basis_vectors=(np.array([1, 0]), np.array([0, 1]))):
         M = np.outer(t, t)
         probs[bitstring] = np.abs(np.conj(psi).T @ np.conj(M).T @ M @ psi)
     return probs
-
-def canonical_reshape(psi):
-    canonical_indices = sp.factorint(psi.size)
-    canonical_indices = [k for k in canonical_indices.keys() for _ in range(canonical_indices[k])]
-    # reshape psi into a tensor of canonical indices
-    return psi.reshape(*canonical_indices)
-
-def contract_tensors(A, i_A, B, i_B):
-    if isinstance(i_A, int):
-        i_A = [i_A]
-    if isinstance(i_B, int):
-        i_B = [i_B]
-
-    A = np.moveaxis(A, i_A, [i for i in range(len(i_A))] )
-    # reorder the indices of B so the i_B is the first index
-    B = np.moveaxis(B, i_B, [i for i in range(len(i_B))])
-
-    n_A = np.prod([A.shape[i] for i in range(-len(i_A),0,1)])
-    n_B = np.prod([B.shape[i] for i in range(0,len(i_B),1)])
-    return canonical_reshape(A.reshape(n_A, A.size//n_A).T @ B.reshape(n_B, B.size//n_B))
-
 
 
 H_m = (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])
@@ -90,7 +71,7 @@ toffoli = (
 U_psi = Qcycle(mapping=H)
 # Unitary to prepare the target state |T>
 
-n = 10
+n = 5
 # Mask ancillary qubits
 ancilla_str = "0" + "01" * (n - 3) + "00"
 maskAncillas = Qmask(ancilla_str)
@@ -131,8 +112,8 @@ ancilla_state = canonical_reshape(np.array([1]+[0]*(2**(n-3)-1)))
 start = time.time()
 
 psi = groverCircuit()
+psi = contract_tensors(psi, ancilla_state, ancilla_indices, [i for i in range(n-3)])
 
-psi = contract_tensors(psi, ancilla_indices, ancilla_state, [i for i in range(n-3)])
 probs = get_probabilities(psi.reshape(psi.size))
 
 # stop timing
