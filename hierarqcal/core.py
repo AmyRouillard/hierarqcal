@@ -333,7 +333,15 @@ class Qmotif:
                 E = [tuple(Q[q_old.index(i)] for i in e) for e in self.E]
             else:
                 # No new edges and qubits didn't changed, so the motif edges stays the same
-                E = self.E
+                if any([q not in self.Q for e in self.E for q in e]):
+                    raise ValueError(
+                        "Edge contains values not in qubit labels, Qmotif requires qubit labels (value not order) to be specified\nedge: {}\nqubit labels: {}".format(
+                            self.E, self.Q
+                        )
+                    )
+
+                else:
+                    E = self.E
         self.set_E(E)
         if remaining_q:
             self.set_Qavail(remaining_q)
@@ -734,12 +742,11 @@ class Qpermute(Qmotif):
         mapping = kwargs.get("mapping", None)
         is_default_mapping = True if mapping is None else False
         # Initialize graph
-        updated_self = super().__init__(
+        super().__init__(
             is_default_mapping=is_default_mapping,
             type=Primitive_Types.PERMUTE,
             **kwargs,
         )
-        return updated_self
 
     def __call__(self, Qc_l, *args, **kwargs):
         """
@@ -764,8 +771,8 @@ class Qpermute(Qmotif):
             Ec_l = list(it.permutations(Qc_l, r=self.arity))
         if len(Ec_l) == 2 and Ec_l[0][0:] == Ec_l[1][1::-1]:
             Ec_l = [Ec_l[0]]
-
-        super().__call__(Qc_l, E=Ec_l, **kwargs)
+        updated_self = super().__call__(Qc_l, E=Ec_l, **kwargs)
+        return updated_self
 
     def __eq__(self, other):
         if isinstance(other, Qpermute):
@@ -1644,7 +1651,7 @@ class Qinit(Qmotif):
         if isinstance(Q, Sequence):
             Qinit = Q
         elif type(Q) == int:
-            Qinit = [i + 1 for i in range(Q)]
+            Qinit = [i for i in range(Q)]
         self.return_object = return_object
         self.tensors = tensors
         # Initialize graph
