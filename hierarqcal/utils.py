@@ -18,7 +18,7 @@ import matplotlib.patches as patches
 from matplotlib.patches import PathPatch, FancyArrowPatch
 from matplotlib import cm
 from matplotlib.path import Path
-from hierarqcal import Qcycle, Qpermute, Qinit, Qmask, Qunmask, Qpivot, Qmotif
+from hierarqcal import Qcycle, Qpermute, Qinit, Qmask, Qunmask, Qpivot, Qmotif, Qunitary
 
 
 def plot_motif(
@@ -384,6 +384,151 @@ def contract(t0, t1=None, indices=None):
     return result
 
 
+# def get_tensor_as_f(u):
+#     def generic_f(bits, symbols=None, return_object=None, u=u):
+#         if len(u.shape) == 2:
+#             # if u is provided as a matrix, we turn it into the correct tensor
+#             # for quantum circuits all tensors have as many inputs as outputs
+#             # all inputs indices also have the same range
+#             n_inputs = len(bits)
+#             idx_range = int(
+#                 u.shape[0] ** (1 / n_inputs)
+#             )  # matrix is square so we can take first or second axis
+#             if isinstance(u, sp.Matrix):
+#                 # convert to numpy matrix
+#                 f = sp.lambdify(list(u.free_symbols), u, "numpy")
+#                 u = f(*symbols)
+#             u = u.reshape([idx_range for i in range(n_inputs * 2)])
+#         new_tensor = contract(return_object, u, [bits, [i for i in range(len(bits))]])
+#         # new_tensor = np.tensordot(u, state, axes=[[i for i in range(len(bits))], bits])
+#         return_object = new_tensor
+#         return return_object
+
+#     return generic_f
+
+
+#####################
+#####################
+
+
+### Work as long as the dimension of all indices are the same eg. (2,2,2,2) or (3,3,3,3)
+def canonical_reshape(psi):
+    canonical_indices = sp.factorint(psi.size)
+    canonical_indices = [k for k in canonical_indices.keys() for _ in range(canonical_indices[k])]
+    # reshape psi into a tensor of canonical indices
+    return psi.reshape(*canonical_indices)
+
+def contract_tensors(A, B, i_A = None, i_B = None, circuit = True):
+    if i_A is None:
+        i_A = [i for i in range(len(A.shape))]
+    elif isinstance(i_A, int):
+        i_A = [i_A]
+    if i_B is None:
+        i_B = i_A
+    elif isinstance(i_B, int):
+        i_B = [i_B]
+    
+    n_A = np.multiply.reduce([A.shape[i] for i in i_A])
+    n_B = np.multiply.reduce([B.shape[i] for i in i_B])
+    
+    n_remaining = len([i for i in range(len(B.shape)) if i not in i_B])
+    i_end = [i for i in range(-n_remaining,0)]
+
+    # A = np.moveaxis(A, i_A, [i for i in range(-len(i_A),0)])
+    # B = np.moveaxis(B, i_B, [i for i in range(len(i_B))])
+    A = np.transpose(A, [i for i in range(len(A.shape)) if i not in i_A]+i_A)
+    B = np.transpose(B, [i for i in range(len(B.shape)) if i not in i_B]+i_B)
+    
+    if circuit == False or n_remaining==0:
+        return canonical_reshape(A.reshape(A.size//n_A, n_A) @ B.reshape(n_B, B.size//n_B))
+    else:
+        return np.moveaxis(canonical_reshape(A.reshape(A.size//n_A, n_A) @ B.reshape(n_B, B.size//n_B)),i_end,i_A)
+
+def test_func(x):
+    # N-5
+    # import numpy as np
+    # random = np.random.rand(*[2 for _ in range(N)])
+    # eye = np.eye(2)
+    # for i in range(N-1):
+    #     eye = np.kron(eye,np.eye(2))
+    # eye = canonical_reshape(eye)
+    # return random, eye
+    global type_test_func
+
+    if x == 1:
+        type_test_func = 1
+    else:
+        type_test_func = 2
+    import numpy as np
+    import sympy as sp
+    n = 4
+
+    H_m = (1 / np.sqrt(2)) * np.array([[1, 1], [1, -1]])
+    X_m = np.array([[0, 1], [1, 0]])
+    CN_m = sp.Matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]])
+    x0 = sp.symbols("x")
+    CP_m = sp.Matrix(
+        [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, sp.exp(sp.I * x0)]]
+    )
+
+    H = Qunitary(get_tensor_as_f(H_m), 0, 1)
+    X = Qunitary(get_tensor_as_f(X_m), 0, 1)
+    CP = lambda x: Qunitary(get_tensor_as_f(CP_m), arity=2, symbols=[x])
+    CN = Qunitary(get_tensor_as_f(CN_m), 0, 2)
+
+    h_bottom = Qpivot("*1", mapping=H)
+    phase_pivot = Qpivot("*1", merge_within="01", mapping=CP(-np.pi / 2))
+    cnot_phase_cnot = (
+        Qmotif(E=[(0, 1)], mapping=CN)
+        + Qmotif(E=[(1, 2)], mapping=CP(np.pi / 2))
+        + Qmotif(E=[(0, 1)], mapping=CN)
+    )
+
+    toffoli = (
+        Qinit([i for i in range(3)]) + h_bottom + phase_pivot + cnot_phase_cnot + h_bottom
+    )
+
+    U_psi = Qcycle(mapping=H)
+
+    ancilla_str = "0" + "01" * (n - 3) + "00"
+    maskAncillas = Qmask(ancilla_str)
+    unmask_ancillas = Qunmask("previous")
+
+    multiCZ = h_bottom
+    multiCZ += Qcycle(mapping=toffoli, step=2, boundary="open")
+    multiCZ += Qmask("*1")
+    multiCZ += Qcycle(mapping=toffoli, step=2, boundary="open", edge_order=[-1])
+    multiCZ += Qunmask("previous")
+    multiCZ += Qpivot(mapping=H, global_pattern="*1")
+
+    U_reflect_0 = (
+        Qcycle(mapping=X) + unmask_ancillas + multiCZ + maskAncillas + Qcycle(mapping=X)
+    )
+
+    # Oracle
+    U_oracle = U_reflect_0
+    # Reflection in the hyperplane orthogonal to |psi> (also called the defusion operator)
+    U_defuse = U_psi + U_reflect_0 + U_psi
+
+    # Grover operator
+    grover = U_oracle + U_defuse
+
+    tensors = [np.array([1, 0], dtype=np.complex128)] *(2*n-3)
+    # Initialise the circuit and prepare the initial state |psi>
+    N = int((np.pi / 2 / np.arctan(1 / np.sqrt(2**n)) - 1) / 2)
+
+    groverCircuit = (
+        Qinit([i for i in range(2*n-3)], tensors=tensors) + maskAncillas + U_psi + grover*N
+    )
+
+    ancilla_indices = [i for i, a in enumerate(ancilla_str) if a == '1']
+    ancilla_state = canonical_reshape(np.array([1]+[0]*(2**(n-3)-1)))
+
+    psi = groverCircuit()
+    psi = contract_tensors(psi, ancilla_state, ancilla_indices, [i for i in range(n-3)])
+
+
+
 def get_tensor_as_f(u):
     def generic_f(bits, symbols=None, return_object=None, u=u):
         if len(u.shape) == 2:
@@ -399,6 +544,9 @@ def get_tensor_as_f(u):
                 f = sp.lambdify(list(u.free_symbols), u, "numpy")
                 u = f(*symbols)
             u = u.reshape([idx_range for i in range(n_inputs * 2)])
+        # if type_test_func  == 1:
+        # new_tensor = contract_tensors(return_object, u, list(bits), [i for i in range(len(bits))])
+        # else:   
         new_tensor = contract(return_object, u, [bits, [i for i in range(len(bits))]])
         # new_tensor = np.tensordot(u, state, axes=[[i for i in range(len(bits))], bits])
         return_object = new_tensor

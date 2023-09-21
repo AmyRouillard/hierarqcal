@@ -8,12 +8,18 @@ from hierarqcal import (
     Qpivot,
     plot_circuit,
     plot_motif,
+    contract,
     get_tensor_as_f,
+    contract_tensors,
+    canonical_reshape,
     Qunitary,
 )
 import numpy as np
 import sympy as sp
 import itertools as it
+# time code
+import time
+
 
 
 def get_probabilities(psi, basis_vectors=(np.array([1, 0]), np.array([0, 1]))):
@@ -49,7 +55,6 @@ X = Qunitary(get_tensor_as_f(X_m), 0, 1)
 CP = lambda x: Qunitary(get_tensor_as_f(CP_m), arity=2, symbols=[x])
 CN = Qunitary(get_tensor_as_f(CN_m), 0, 2)
 
-
 h_bottom = Qpivot("*1", mapping=H)
 phase_pivot = Qpivot("*1", merge_within="01", mapping=CP(-np.pi / 2))
 cnot_phase_cnot = (
@@ -65,8 +70,10 @@ toffoli = (
 # Unitary to prepare the state |psi>
 U_psi = Qcycle(mapping=H)
 # Unitary to prepare the target state |T>
+
+n = 5
 # Mask ancillary qubits
-ancilla_str = "00100"
+ancilla_str = "0" + "01" * (n - 3) + "00"
 maskAncillas = Qmask(ancilla_str)
 unmask_ancillas = Qunmask("previous")
 # Multicontrolled Z gate
@@ -90,11 +97,34 @@ U_defuse = U_psi + U_reflect_0 + U_psi
 # Grover operator
 grover = U_oracle + U_defuse
 
-tensors = [np.array([1, 0], dtype=np.complex256)] * 5
+tensors = [np.array([1, 0], dtype=np.complex128)] *(2*n-3)
 # Initialise the circuit and prepare the initial state |psi>
+N = int((np.pi / 2 / np.arctan(1 / np.sqrt(2**n)) - 1) / 2)
+
 groverCircuit = (
-    Qinit([i for i in range(5)], tensors=tensors) + maskAncillas + U_psi + grover
+    Qinit([i for i in range(2*n-3)], tensors=tensors) + maskAncillas + U_psi + grover*N
 )
 
+ancilla_indices = [i for i, a in enumerate(ancilla_str) if a == '1']
+ancilla_state = canonical_reshape(np.array([1]+[0]*(2**(n-3)-1)))
+
+# start timing 
+start = time.time()
+
 psi = groverCircuit()
+psi = contract_tensors(psi, ancilla_state, ancilla_indices, [i for i in range(n-3)])
+
+probs = get_probabilities(psi.reshape(psi.size))
+
+# stop timing
+end = time.time()
+print(f"Time taken: {end-start:.3f}s")
+
+theshold = 0.001
+for bitstring, prob in probs.items():
+    if prob > theshold: 
+        print(f"|{bitstring}>: {prob:.3f}")
+
+print(2*n-3)
+print(f"{1 -np.conj(psi.reshape(psi.size)).T @  psi.reshape(psi.size)}")
 print("hi")

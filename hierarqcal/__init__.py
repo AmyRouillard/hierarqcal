@@ -18,6 +18,9 @@ from .utils import (
     contract,
     tensor_to_matrix_rowmajor,
     tensor_to_matrix_colmajor,
+    canonical_reshape, 
+    contract_tensors,
+    test_func,
 )
 
 __all__ = [
