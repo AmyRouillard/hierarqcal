@@ -324,7 +324,7 @@ def plot_circuit(
         ddx = 0
         layer = layer.next
     plt.axis("off")
-    plt.show()
+    #plt.show()
     return fig, ax
 
 

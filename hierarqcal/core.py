@@ -1304,6 +1304,8 @@ class Qpivot(Qsplit):
 
                 E_b = [(e[1], e[0]) for e in E_b]
 
+                
+
                 # Merge the two splits based on merge pattern
                 merge_within_pop = self.wildcard_populate(self.merge_within, self.arity)
                 Ep_l = self.merge_within_splits(E_b, merge_within_pop)
