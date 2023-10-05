@@ -906,26 +906,29 @@ class Qsplit(Qmotif):
     def cycle_between_splits(
         self, E_a, E_b, stride=0, step=1, offset=0, boundary="open"
     ):
-        if boundary == "open":
-            E = [
-                (
-                    E_a[i],
-                    E_b[(i + stride)],
-                )
-                for i in range(offset, len(E_a), step)
-                if (i + stride) < len(E_b)
-            ]
-        elif boundary == "periodic":
-            E = [
-                (
-                    E_a[i],
-                    E_b[(i + stride) % len(E_b)],
-                )
-                for i in range(offset, len(E_a), step)
-            ]
+        if len(E_a)==0 or len(E_b)==0:
+            return []
         else:
-            raise Exception("Boundary must be either open or periodic")
-        return E
+            if boundary == "open":
+                E = [
+                    (
+                        E_a[i],
+                        E_b[(i + stride)],
+                    )
+                    for i in range(offset, len(E_a), step)
+                    if (i + stride) < len(E_b)
+                ]
+            elif boundary == "periodic":
+                E = [
+                    (
+                        E_a[i],
+                        E_b[(i + stride) % len(E_b)],
+                    )
+                    for i in range(offset, len(E_a), step)
+                ]
+            else:
+                raise Exception("Boundary must be either open or periodic")
+            return E
 
     def merge_within_splits(self, E, merge_pattern):
         E_out = []
@@ -1110,8 +1113,12 @@ class Qmask(Qsplit):
                     offset=self.offsets[2],
                     boundary=self.boundaries[2],
                 )
-                # Merge the two splits based on merge pattern
-                Ep_l = self.merge_within_splits(E_b, merge_within_pop)
+
+                if len(E_b) > 0:
+                    # Merge the two splits based on merge pattern
+                    Ep_l = self.merge_within_splits(E_b, merge_within_pop)
+                else:
+                    Ep_l = []
 
         updated_self = super().__call__(
             Qp_l, E=Ep_l, remaining_q=remaining_q, is_operation=is_operation, **kwargs
@@ -1304,11 +1311,12 @@ class Qpivot(Qsplit):
 
                 E_b = [(e[1], e[0]) for e in E_b]
 
-                
-
-                # Merge the two splits based on merge pattern
-                merge_within_pop = self.wildcard_populate(self.merge_within, self.arity)
-                Ep_l = self.merge_within_splits(E_b, merge_within_pop)
+                if len(E_b) > 0:
+                    # Merge the two splits based on merge pattern
+                    merge_within_pop = self.wildcard_populate(self.merge_within, self.arity)
+                    Ep_l = self.merge_within_splits(E_b, merge_within_pop)
+                else:
+                    Ep_l = []
             else:
                 Ep_l = []
         else:
@@ -1322,27 +1330,30 @@ class Qpivot(Qsplit):
     def cycle_between_splits(
         self, E_a, E_b, stride=0, step=1, offset=0, boundary="open"
     ):
-        if boundary == "open":
-            E = [
-                (
-                    E_a[i],
-                    E_b[(i + stride)],
-                )
-                for i in range(offset, len(E_a), step)
-                if (i + stride) < len(E_b)
-            ]
-        elif boundary == "periodic":
-            E = [
-                (
-                    E_a[i],
-                    E_b[(i + stride) % len(E_b)],
-                )
-                for i in range(offset, len(E_a), step)
-            ]
+        if len(E_a)==0 or len(E_b)==0:
+            return []
         else:
-            raise Exception("Boundary must be either open or periodic")
+            if boundary == "open":
+                E = [
+                    (
+                        E_a[i],
+                        E_b[(i + stride)],
+                    )
+                    for i in range(offset, len(E_a), step)
+                    if (i + stride) < len(E_b)
+                ]
+            elif boundary == "periodic":
+                E = [
+                    (
+                        E_a[i],
+                        E_b[(i + stride) % len(E_b)],
+                    )
+                    for i in range(offset, len(E_a), step)
+                ]
+            else:
+                raise Exception("Boundary must be either open or periodic")
 
-        return E
+            return E
 
     def __eq__(self, other):
         if isinstance(other, Qmask):
@@ -1679,13 +1690,17 @@ class Qinit(Qmotif):
             """
             If tensors are provided, the return_object is initialized as the tensor product of all the tensors.
             """
-            dimensions = [len(self.tensors[0])]
-            return_object = self.tensors[0]
-            for tensor in self.tensors[1:]:
-                return_object = np.array(np.kron(return_object, tensor))
-                dimensions += [len(tensor)]
-            self.dimensions = dimensions
-            self.return_object = return_object.reshape(dimensions)
+            # dimensions = [len(self.tensors[0])]
+            # return_object = self.tensors[0]
+            # for tensor in self.tensors[1:]:
+            #     return_object = np.array(np.kron(return_object, tensor))
+            #     dimensions += [len(tensor)]
+            # self.dimensions = dimensions
+            # self.return_object = return_object.reshape(dimensions)
+
+            self.return_object = self.tensors
+            self.dimensions = list(self.tensors.shape)
+
         self.set_Q(Q)
         self.set_Qavail(Q)
         return self
