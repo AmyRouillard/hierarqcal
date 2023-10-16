@@ -1210,7 +1210,7 @@ class Qpivot(Qsplit):
         if isinstance(offsets, int):
             offsets = [offsets] * 3
         if isinstance(boundaries, str):
-            offsets = [offsets] * 3
+            offsets = [boundaries] * 3
 
         super().__init__(
             global_pattern=global_pattern,
@@ -1293,7 +1293,9 @@ class Qpivot(Qsplit):
                 # Reorder E_p so that like pivots are grouped together, i.e. remaining avaliable qubits are assigned first to the first pivot point, then the second and so on.
                 E_tmp = []
                 for i in range(N):
-                    E_tmp += E_p[i::N]
+                    E_tmp += E_p[
+                        i :: N + 1
+                    ]  # TODO check if this change works as intended it used to be just N
                 E_p = E_tmp.copy()
 
                 # TODO what could merge_between be used for?
@@ -1606,7 +1608,6 @@ class Qhierarchy:
         Returns:
             Qhierarchy: A new Qhierarchy object with the two merged.
         """
-        # ensure immutability
         other_hierarchy = deepcopy(hierarchy)
         new_hierarchy = deepcopy(self)
         other_hierarchy.update_Q(
@@ -1630,6 +1631,19 @@ class Qhierarchy:
         for hierarchy in hierarchies:
             new_qcnn = new_qcnn.merge(hierarchy)
         return new_qcnn
+
+    def reverse(self):
+        """
+        Reverse the stack of motifs on the highest level, i.e. only the direct children nothing deeper.
+        """
+        old = self.head
+        current = deepcopy(self.tail)
+        while not (isinstance(old, Qinit)):
+            current = current + old
+            old = old.prev
+        current.head.set_next(None)
+
+        return current
 
     def update_Q(self, Q, start_idx=0):
         """
