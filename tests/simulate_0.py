@@ -12,9 +12,12 @@ from hierarqcal import (
     Qunitary,
     Qhierarchy,
 )
+from hierarqcal.utils import product2tensor
 import numpy as np
 import sympy as sp
 import itertools as it
+
+
 
 def get_bitlist(a, n):
     """
@@ -74,7 +77,7 @@ def get_tensors(r, N, n, x=1, a=None, b=None):
 
 n = 3
 N = 4
-a = 6
+a = 3
 r = 3
 x = 1
 b = 6
@@ -251,8 +254,8 @@ reset_if_overflow = (
 )
 
 addition_mod_n = (
-
-    addition
+    Qinit(nq)
+    + addition
     + swap_an
     + subtraction
     + ctrl_not_bc_tmp_x
@@ -367,7 +370,7 @@ for k in range(n):
 #     )
 #     + Qmask("1*")
 # ) * n
-hierq = Qinit(nq, tensors=tensors) + exp_mod_n #+ mask_part(["r"], inv=True) #+ qft
+hierq = Qinit(nq, tensors=product2tensor(tensors)) + exp_mod_n #+ mask_part(["r"], inv=True) #+ qft
 
 result_tensor = hierq()
 # p = get_probabilities(result_tensor.flatten())

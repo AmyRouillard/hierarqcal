@@ -412,3 +412,23 @@ def get_tensor_as_f(u):
         return return_object
 
     return generic_f
+
+
+
+
+def canonical_reshape(psi):
+    if psi.size == 1:
+        return psi.reshape(1)
+    else:
+        canonical_indices = sp.factorint(psi.size)
+        canonical_indices = [k for k in canonical_indices.keys() for _ in range(canonical_indices[k])]
+        # reshape psi into a tensor of canonical indices
+        return psi.reshape(*canonical_indices)
+    
+def product2tensor(product_state):
+    tensor = np.array(product_state[0])
+    for t in product_state [1:]:
+        tensor = np.array(np.kron(tensor, t))
+    tensor = canonical_reshape(tensor)
+
+    return tensor

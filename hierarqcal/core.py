@@ -19,6 +19,7 @@ from collections import deque, namedtuple
 import numpy as np
 import itertools as it
 import sympy as sp
+import re
 
 CircuitInstruction = namedtuple(
     "CircuitInstruction", ["gate_name", "symbol_info", "sub_bits"]
@@ -46,7 +47,7 @@ class Qunitary:
     # TODO add share_weights parameter
     """
 
-    def __init__(self, function=None, n_symbols=0, arity=2, symbols=None):
+    def __init__(self, function=None, n_symbols=0, arity=2, symbols=None, name = None):
         """
         Args:
             function (function, optional): Function to apply. If None, then the default from :py:class:`Default_Mappings` is used.
@@ -55,6 +56,7 @@ class Qunitary:
             symbols (list, optional): List of symbol values (rotation angles). Elements can be either sympy symbols, complex numbers, or qiskit parameters. Defaults to None.
         """
         self.function = function
+        self.name = name
         if isinstance(self.function, str):
             (
                 circuit_instructions,
@@ -432,6 +434,7 @@ class Qmotif:
             mapping (Qhierarchy or Qunitary): Unitary operation applied to the motif.
         """
         self.mapping = mapping
+        #self.arity = self.mapping.arity
 
     def set_next(self, next):
         """
@@ -833,7 +836,25 @@ class Qsplit(Qmotif):
         n_excl = pattern.count("!")
         # base = pattern.replace("*", "0" * zero_per_star)
         # base = base.replace("!", "1" * zero_per_star)
+
+        ######
+        # TODO currently only the fist '[...]' is considered, rest ignored.
+        # find part of pattern between square brackets
+        repeat = re.findall(r"\[(.*?)\]", pattern)
+        if len(repeat) > 0:
+            # check that pattern begins or ends with '!' or "*"
+            if pattern[0] not in ["*", "!"] and pattern[-1] not in ["*", "!"]:
+                raise ValueError(
+                    "Pattern must begin or end with a wildcard character, i.e. '*' or '!' of repetition is used."
+                )
+            # find pattern remaining once '[..]' have been removed
+            remaining_pattern = re.sub(r"\[(.*?)\]", "", pattern)
+            n_repeat = (length-len(remaining_pattern))//len(repeat[0])
+            pattern = re.sub(r"\[(.*?)\]", repeat[0]*n_repeat, pattern)
+        ######
+
         base = pattern
+        
         max_it = length
         do_star = True if n_stars > 0 else False
         just_changed = False
@@ -847,6 +868,7 @@ class Qsplit(Qmotif):
             0!0 -> 01111110
             *! -> 00001111
             *1* -> 00001000
+            [101] -> 101101*
             The algorithm alternates between finding a star and an excl and inserts a 0 or 1 next to it. The first iteration checks for a star (since we need to pick one), therefore it has a kind of precedence, but only effects the first insertion. From there it alternates between star and excl.
 
             We have another alternation which is between using find and rfind, this is to handle the case when there's 2 stars or 2 exclamations. I don't think 3 wild cards make sense TODO think about this.
@@ -1242,20 +1264,38 @@ class Qpivot(Qsplit):
         # TODO add a defualt mapping?
         if self.mapping is None:
             raise Exception("Pivot must have a mapping")
+        
 
+        self.merge_within = self.wildcard_populate(self.merge_within, self.arity) # self.mapping.arity == self.arity ?
+        # accepted_merge_within = [np.binary_repr(i,width = self.arity) for i in range(2**self.mapping.arity)]
+        # if self.merge_within not in accepted_merge_within:
+        #     raise Exception(f"Merge within pattern must be one of {accepted_merge_within}")
+        
         # Count the number of 1s in the merge pattern
         arity_p = self.merge_within.count("1")
+        if arity_p <= 0:
+            raise Exception("Arity of pivot is zero. Merge within pattern must contain at least one 1.")
+        if arity_p > self.arity:
+            raise Exception(f"Arity of pivot is greater than arity of mapping.")
         arity_r = self.arity - arity_p
+
 
         # Get global pattern function based on the pattern attribute
         self.pivot_pattern_fn = self.get_pattern_fn(
             self.global_pattern.replace("1", "1" * arity_p), len(Qp_l)
         )
+
+        # acceptable global patterns with one pivot
+        # accepted_global_pattern = ['0'*k+'1'*arity_p+'0'*(len(Qp_l)-arity_p-k) for k in range(len(Qp_l)-arity_p+1)]
+        # if self.wildcard_populate(self.global_pattern.replace("1", "1" * arity_p), len(Qp_l)) not in accepted_global_pattern:
+        #     raise Exception(f"Global pattern must be one of {accepted_global_pattern}")
+
         pivot_q = [
             p
             for i in range((len(self.pivot_pattern_fn(Qp_l)) + arity_p - 1) // arity_p)
             for p in self.pivot_pattern_fn(Qp_l)[i * arity_p : (i + 1) * arity_p]
         ]
+
 
         remaining_q = [q for q in Qp_l if not (q in pivot_q)]
 
@@ -1315,8 +1355,9 @@ class Qpivot(Qsplit):
 
                 if len(E_b) > 0:
                     # Merge the two splits based on merge pattern
-                    merge_within_pop = self.wildcard_populate(self.merge_within, self.arity)
-                    Ep_l = self.merge_within_splits(E_b, merge_within_pop)
+                    # merge_within_pop = self.wildcard_populate(self.merge_within, self.arity)
+                    # Ep_l = self.merge_within_splits(E_b, merge_within_pop)
+                    Ep_l = self.merge_within_splits(E_b, self.merge_within)
                 else:
                     Ep_l = []
             else:
