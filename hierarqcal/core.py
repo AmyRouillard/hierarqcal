@@ -47,7 +47,7 @@ class Qunitary:
     # TODO add share_weights parameter
     """
 
-    def __init__(self, function=None, n_symbols=0, arity=2, symbols=None, name = None):
+    def __init__(self, function=None, n_symbols=0, arity=2, symbols=None, name=None):
         """
         Args:
             function (function, optional): Function to apply. If None, then the default from :py:class:`Default_Mappings` is used.
@@ -434,7 +434,7 @@ class Qmotif:
             mapping (Qhierarchy or Qunitary): Unitary operation applied to the motif.
         """
         self.mapping = mapping
-        #self.arity = self.mapping.arity
+        # self.arity = self.mapping.arity
 
     def set_next(self, next):
         """
@@ -837,24 +837,8 @@ class Qsplit(Qmotif):
         # base = pattern.replace("*", "0" * zero_per_star)
         # base = base.replace("!", "1" * zero_per_star)
 
-        ######
-        # TODO currently only the fist '[...]' is considered, rest ignored.
-        # find part of pattern between square brackets
-        repeat = re.findall(r"\[(.*?)\]", pattern)
-        if len(repeat) > 0:
-            # check that pattern begins or ends with '!' or "*"
-            if pattern[0] not in ["*", "!"] and pattern[-1] not in ["*", "!"]:
-                raise ValueError(
-                    "Pattern must begin or end with a wildcard character, i.e. '*' or '!' of repetition is used."
-                )
-            # find pattern remaining once '[..]' have been removed
-            remaining_pattern = re.sub(r"\[(.*?)\]", "", pattern)
-            n_repeat = (length-len(remaining_pattern))//len(repeat[0])
-            pattern = re.sub(r"\[(.*?)\]", repeat[0]*n_repeat, pattern)
-        ######
-
         base = pattern
-        
+
         max_it = length
         do_star = True if n_stars > 0 else False
         just_changed = False
@@ -928,7 +912,7 @@ class Qsplit(Qmotif):
     def cycle_between_splits(
         self, E_a, E_b, stride=0, step=1, offset=0, boundary="open"
     ):
-        if len(E_a)==0 or len(E_b)==0:
+        if len(E_a) == 0 or len(E_b) == 0:
             return []
         else:
             if boundary == "open":
@@ -1264,21 +1248,23 @@ class Qpivot(Qsplit):
         # TODO add a defualt mapping?
         if self.mapping is None:
             raise Exception("Pivot must have a mapping")
-        
 
-        self.merge_within = self.wildcard_populate(self.merge_within, self.arity) # self.mapping.arity == self.arity ?
+        self.merge_within = self.wildcard_populate(
+            self.merge_within, self.arity
+        )  # self.mapping.arity == self.arity ?
         # accepted_merge_within = [np.binary_repr(i,width = self.arity) for i in range(2**self.mapping.arity)]
         # if self.merge_within not in accepted_merge_within:
         #     raise Exception(f"Merge within pattern must be one of {accepted_merge_within}")
-        
+
         # Count the number of 1s in the merge pattern
         arity_p = self.merge_within.count("1")
         if arity_p <= 0:
-            raise Exception("Arity of pivot is zero. Merge within pattern must contain at least one 1.")
+            raise Exception(
+                "Arity of pivot is zero. Merge within pattern must contain at least one 1."
+            )
         if arity_p > self.arity:
             raise Exception(f"Arity of pivot is greater than arity of mapping.")
         arity_r = self.arity - arity_p
-
 
         # Get global pattern function based on the pattern attribute
         self.pivot_pattern_fn = self.get_pattern_fn(
@@ -1295,7 +1281,6 @@ class Qpivot(Qsplit):
             for i in range((len(self.pivot_pattern_fn(Qp_l)) + arity_p - 1) // arity_p)
             for p in self.pivot_pattern_fn(Qp_l)[i * arity_p : (i + 1) * arity_p]
         ]
-
 
         remaining_q = [q for q in Qp_l if not (q in pivot_q)]
 
@@ -1373,7 +1358,7 @@ class Qpivot(Qsplit):
     def cycle_between_splits(
         self, E_a, E_b, stride=0, step=1, offset=0, boundary="open"
     ):
-        if len(E_a)==0 or len(E_b)==0:
+        if len(E_a) == 0 or len(E_b) == 0:
             return []
         else:
             if boundary == "open":

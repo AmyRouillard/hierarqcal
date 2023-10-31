@@ -18,7 +18,6 @@ import sympy as sp
 import itertools as it
 
 
-
 def get_bitlist(a, n):
     """
     Returns a list of bits of length n representing the integer a.
@@ -92,7 +91,7 @@ mask_part = lambda part, inv=False: Qmask(
     )
 )
 
-mask_part(["r","N"], inv=False)
+mask_part(["r", "N"], inv=False)
 
 # ====== Matrices
 toffoli_m = np.identity(8)
@@ -285,7 +284,7 @@ subtraction_mod_n = (
 # === verify
 hierq = (
     Qinit(nq, tensors=tensors)
-    + Qpivot(mapping=addition_mod_n) 
+    + Qpivot(mapping=addition_mod_n)
     + Qpivot(mapping=subtraction_mod_n)
 )
 # result_tensor = hierq()
@@ -370,7 +369,9 @@ for k in range(n):
 #     )
 #     + Qmask("1*")
 # ) * n
-hierq = Qinit(nq, tensors=product2tensor(tensors)) + exp_mod_n #+ mask_part(["r"], inv=True) #+ qft
+hierq = (
+    Qinit(nq, tensors=product2tensor(tensors)) + exp_mod_n
+)  # + mask_part(["r"], inv=True) #+ qft
 
 result_tensor = hierq()
 # p = get_probabilities(result_tensor.flatten())
