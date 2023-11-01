@@ -1266,10 +1266,19 @@ class Qpivot(Qsplit):
             raise Exception(f"Arity of pivot is greater than arity of mapping.")
         arity_r = self.arity - arity_p
 
-        # Get global pattern function based on the pattern attribute
-        self.pivot_pattern_fn = self.get_pattern_fn(
-            self.global_pattern.replace("1", "1" * arity_p), len(Qp_l)
-        )
+        # # Get global pattern function based on the pattern attribute
+        # self.pivot_pattern_fn = self.get_pattern_fn(
+        #     self.global_pattern.replace("1", "1" * arity_p), len(Qp_l)
+        # )
+        # new idea for global pattern
+        if (
+            sum([x == "0" for x in self.global_pattern]) < self.arity - arity_p
+            or sum([x == "1" for x in self.global_pattern]) < arity_p
+        ):
+            raise Exception(
+                f"Global pattern must contain at least {self.arity - arity_p} 0's and {arity_p} 1's"
+            )
+        self.pivot_pattern_fn = self.get_pattern_fn(self.global_pattern, len(Qp_l))
 
         # acceptable global patterns with one pivot
         # accepted_global_pattern = ['0'*k+'1'*arity_p+'0'*(len(Qp_l)-arity_p-k) for k in range(len(Qp_l)-arity_p+1)]
