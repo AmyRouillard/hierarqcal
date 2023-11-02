@@ -599,12 +599,12 @@ class Qmotif:
             ]
             # Remove all that is not "complete", i.e. contain duplicates
             E = [edge for edge in E if len(set(edge)) == arity]
-        if (
-            len(E) == arity
-            and sum([len(set(E[0]) - set(E[k])) == 0 for k in range(arity)]) == arity
-        ):
-            # If there are only as many edges as qubits, and they are the same, then we can keep only one of them
-            E = [E[0]]
+        # if (
+        #     len(E) == arity
+        #     and sum([len(set(E[0]) - set(E[k])) == 0 for k in range(arity)]) == arity
+        # ):
+        #     # If there are only as many edges as qubits, and they are the same, then we can keep only one of them
+        #     E = [E[0]]
         return E
 
 
