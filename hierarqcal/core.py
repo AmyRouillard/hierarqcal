@@ -1272,10 +1272,22 @@ class Qpivot(Qsplit):
         # )
         # new idea for global pattern
         if (
-            sum([x == "0" for x in self.global_pattern]) < self.arity - arity_p
-            or sum([x == "1" for x in self.global_pattern]) < arity_p
+            sum(
+                [
+                    x == "0"
+                    for x in self.wildcard_populate(self.global_pattern, len(Qp_l))
+                ]
+            )
+            < self.arity - arity_p
+            or sum(
+                [
+                    x == "1"
+                    for x in self.wildcard_populate(self.global_pattern, len(Qp_l))
+                ]
+            )
+            < arity_p
         ):
-            raise Exception(
+            print(
                 f"Global pattern must contain at least {self.arity - arity_p} 0's and {arity_p} 1's"
             )
         self.pivot_pattern_fn = self.get_pattern_fn(self.global_pattern, len(Qp_l))
