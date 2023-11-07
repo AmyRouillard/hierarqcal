@@ -148,16 +148,16 @@ sum = lambda r=1: Qinit(3) + Qpivot(
 # ====== Motifs level 2
 carry_sum_motif = (
     lambda r=1: Qinit(4)
-    + Qpivot("1*", merge_within="1111", mapping=carry(-r))
-    + Qpivot("1*", merge_within="111", mapping=sum(r))
+    + Qpivot("1111*", merge_within="1111", mapping=carry(-r))
+    + Qpivot("111*", merge_within="111", mapping=sum(r))
 )
 carry_sum = lambda r=1: carry_sum_motif(1) if r == 1 else carry_sum_motif(-1).reverse()
 
 
 cnot_sum_motif = (
     lambda r=1: Qinit(3)
-    + Qpivot("*1", merge_within="11", mapping=cnot)
-    + Qpivot("*1", merge_within="111", mapping=sum(r))
+    + Qpivot("*11", merge_within="11", mapping=cnot)
+    + Qpivot("*111", merge_within="111", mapping=sum(r))
 )
 cnot_sum = lambda r=1: cnot_sum_motif(1) if r == 1 else cnot_sum_motif(-1).reverse()
 # === verify
@@ -176,7 +176,7 @@ carry_layer = lambda r=1: Qcycle(
     boundary="open",
     edge_order=[r],
 )
-cnot_sum_pivot = lambda r: Qpivot("*10", merge_within="111", mapping=cnot_sum(r))
+cnot_sum_pivot = lambda r: Qpivot("*1110", merge_within="111", mapping=cnot_sum(r))
 carry_sum_layer = lambda r: (
     Qmask("*111")
     + Qcycle(
@@ -313,7 +313,7 @@ def ctrl_mult(a, N, n, ctrl=0, divide=False):
             encode_2a = (
                 mask_2apower
                 + unmask_ctrl
-                + Qpivot("1*", merge_within="110", mapping=toffoli)
+                + Qpivot("11*", merge_within="110", mapping=toffoli)
                 + Qunmask("!")
             )
             ctrl_mult_mod += (

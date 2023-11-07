@@ -283,9 +283,7 @@ def plot_circuit(
                 ax.hlines(-i, x, plot_width, color="gray", zorder=-2)
             ddx += 0.5
         elif isinstance(layer, Qmask) and len(layer.E) == 0:
-            for i, label in enumerate(
-                [q for q in layer.Q if q not in layer.Q_avail]
-            ):
+            for i, label in enumerate([q for q in layer.Q if q not in layer.Q_avail]):
                 ind = hierq.tail.Q.index(label)
                 circle1 = plt.Circle(
                     (x + ddx, -ind), small_r, fill=True, color=node_colour
@@ -306,6 +304,16 @@ def plot_circuit(
                 circle1 = plt.Circle(
                     (x + ddx, -q_prev_ind), small_r, fill=True, color=color
                 )
+                # if mapping has name add text above circle 1
+                if layer.mapping.name is not None:
+                    ax.text(
+                        x + ddx,
+                        -q_prev_ind + 0.5,
+                        layer.mapping.name,
+                        ha="center",
+                        va="center",
+                    )
+
                 ax.add_artist(circle1)
                 i_order += 1
                 for q_next in e[1:]:
@@ -331,7 +339,7 @@ def plot_circuit(
         ddx = 0
         layer = layer.next
     plt.axis("off")
-    #plt.show()
+    # plt.show()
     return fig, ax
 
 
@@ -414,20 +422,21 @@ def get_tensor_as_f(u):
     return generic_f
 
 
-
-
 def canonical_reshape(psi):
     if psi.size == 1:
         return psi.reshape(1)
     else:
         canonical_indices = sp.factorint(psi.size)
-        canonical_indices = [k for k in canonical_indices.keys() for _ in range(canonical_indices[k])]
+        canonical_indices = [
+            k for k in canonical_indices.keys() for _ in range(canonical_indices[k])
+        ]
         # reshape psi into a tensor of canonical indices
         return psi.reshape(*canonical_indices)
-    
+
+
 def product2tensor(product_state):
     tensor = np.array(product_state[0])
-    for t in product_state [1:]:
+    for t in product_state[1:]:
         tensor = np.array(np.kron(tensor, t))
     tensor = canonical_reshape(tensor)
 
