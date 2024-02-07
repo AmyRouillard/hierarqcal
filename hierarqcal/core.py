@@ -1183,7 +1183,7 @@ class Qunmask(Qsplit):
         is_operation = False
         Ep_l = []
         unique_unmasked = [q for q in unmasked_q if q not in Qp_l]
-        new_avail_q = [q for q in q_old if q in Qp_l + unique_unmasked]
+        new_avail_q = [q for q in q_old if q in list(Qp_l) + unique_unmasked]
         updated_self = super().__call__(
             Qp_l, E=Ep_l, remaining_q=new_avail_q, is_operation=is_operation, **kwargs
         )
