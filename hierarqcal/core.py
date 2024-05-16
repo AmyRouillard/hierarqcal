@@ -72,6 +72,7 @@ class Qunitary:
             self.arity = arity
         self.symbols = symbols
         self.edge = None
+        self.name = name
 
     def __call__(self, *args, **kwargs):
         return self.function(*args, **kwargs)
@@ -287,12 +288,12 @@ class Qmotif:
                 else:
                     # If they are numeric
                     new_symbols = list(self.mapping.get_symbols())
-
                 new_mapping = Qunitary(
                     function=None,
                     n_symbols=self.mapping.n_symbols,
                     arity=len(self.mapping.tail.Q),
                     symbols=new_symbols,
+                    name=self.mapping.tail.name, # Qinit contains name
                 )
                 new_mapping.function = self.mapping.get_unitary_function()
                 self.mapping = new_mapping
@@ -599,12 +600,13 @@ class Qmotif:
             ]
             # Remove all that is not "complete", i.e. contain duplicates
             E = [edge for edge in E if len(set(edge)) == arity]
-        # if (
-        #     len(E) == arity
-        #     and sum([len(set(E[0]) - set(E[k])) == 0 for k in range(arity)]) == arity
-        # ):
-        #     # If there are only as many edges as qubits, and they are the same, then we can keep only one of them
-        #     E = [E[0]]
+        if (
+            len(E) == arity
+            and sum([len(set(E[0]) - set(E[k])) == 0 for k in range(arity)]) == arity
+        ):
+            # If there are only as many edges as qubits, and they are the same, then we can keep only one of them
+            if arity > 0:
+                E = [E[0]]
         return E
 
 
@@ -1111,19 +1113,21 @@ class Qmask(Qsplit):
                     pattern_fn = self.get_pattern_fn(self.merge_between, len(E_r))
                     E_r = pattern_fn(E_r)
 
-                E_b = self.cycle_between_splits(
-                    E_a=E_m,
-                    E_b=E_r,
-                    stride=self.strides[2],
-                    step=self.steps[2],
-                    offset=self.offsets[2],
-                    boundary=self.boundaries[2],
-                )
-
-                if len(E_b) > 0:
+                if len(E_m) > 0 and len(E_r) > 0:
+                    E_b = self.cycle_between_splits(
+                        E_a=E_m,
+                        E_b=E_r,
+                        stride=self.strides[2],
+                        step=self.steps[2],
+                        offset=self.offsets[2],
+                        boundary=self.boundaries[2],
+                    )
                     # Merge the two splits based on merge pattern
                     Ep_l = self.merge_within_splits(E_b, merge_within_pop)
                 else:
+                    # Do nothing if Em or Er was empty
+                    remaining_q = Qp_l
+
                     Ep_l = []
 
         updated_self = super().__call__(
@@ -1245,7 +1249,7 @@ class Qpivot(Qsplit):
         """
 
         # Pivot must have a mapping
-        # TODO add a defualt mapping?
+        # TODO add a default mapping?
         if self.mapping is None:
             raise Exception("Pivot must have a mapping")
 
@@ -1325,8 +1329,8 @@ class Qpivot(Qsplit):
                 arity=arity_r,
             )
 
-            # If E_r empty then there were not enough qubits to satisfiy the arity
-            if len(E_r) > 0:
+            # If E_r empty then there were not enough qubits to satisfy the arity
+            if len(E_r) > 0 and len(E_p) > 0:
                 # Duplicate items in E_p to match length of E_r such that each unique item in E_p can be matched to an equal number of items in E_r
                 max_it = 0  # prevent infinite loop
                 E_tmp = E_p.copy()
@@ -1336,7 +1340,7 @@ class Qpivot(Qsplit):
                     max_it += 1
                 E_p = E_tmp.copy()
 
-                # Reorder E_p so that like pivots are grouped together, i.e. remaining avaliable qubits are assigned first to the first pivot point, then the second and so on.
+                # Reorder E_p so that like pivots are grouped together, i.e. remaining available qubits are assigned first to the first pivot point, then the second and so on.
                 E_tmp = []
                 for i in range(N):
                     E_tmp += E_p[
@@ -1486,7 +1490,9 @@ class Qhierarchy:
                 new_qcnn = self
         return new_qcnn
 
-    def __iter__(self):
+    def __iter__(
+        self,
+    ):
         """
         Generator to go from head to tail and only return operations (motifs that correspond to operations).
         """
@@ -1496,6 +1502,17 @@ class Qhierarchy:
             if current.is_operation:
                 yield current
             current = current.next
+
+    def __len__(self):
+        """
+        Returns the number of motifs in the hierarchy.
+        """
+        k = 0
+        current = self.tail
+        while current is not None:
+            k += 1
+            current = current.next
+        return k
 
     def __repr__(self) -> str:
         description = ""
@@ -1540,15 +1557,15 @@ class Qhierarchy:
                 self.set_symbols(symbols)
             # Default backend
             # TODO set default mapping
-            return_object = self.tail(self.tail.Q).return_object
+            state = self.tail(self.tail.Q).state
             for layer in self:
                 for unitary in layer.edge_mapping:
-                    return_object = unitary.function(
+                    state = unitary.function(
                         bits=unitary.edge,
                         symbols=unitary.symbols,
-                        return_object=return_object,
+                        state=state,
                     )
-            return return_object
+            return state
 
     def get_symbols(self):
         return (symbol for layer in self for symbol in layer.get_symbols())
@@ -1569,7 +1586,7 @@ class Qhierarchy:
             self.update_Q(bits)
             if not (symbols is None):
                 self.set_symbols(symbols)
-            return_object = None
+            state = None
             for layer in self:
                 for unitary in layer.edge_mapping:
                     if isinstance(unitary.function, str):
@@ -1577,12 +1594,12 @@ class Qhierarchy:
                             "get_circuit_from_string", None
                         )
                         unitary = get_circuit_from_string(unitary)
-                    return_object = unitary.function(
+                    state = unitary.function(
                         unitary.edge, unitary.symbols, **kwargs
                     )
-                    if kwargs.get("return_object", None) is not None:
-                        kwargs["return_object"] = return_object
-            return return_object
+                    if kwargs.get("state", None) is not None:
+                        kwargs["state"] = state
+            return state
 
         return unitary_function
 
@@ -1692,6 +1709,16 @@ class Qhierarchy:
 
         return current
 
+    def replace(self, motif, selected_index):
+        top_level_indices = range(1, len(self), 1)
+        current = deepcopy(self[0])
+        for index in top_level_indices:
+            if index == selected_index:
+                current = current + motif
+            else:
+                current = current + self[index]
+        return current
+
     def update_Q(self, Q, start_idx=0):
         """
         Update the number of available qubits for the hierarchy and update the rest of the stack accordingly.
@@ -1721,13 +1748,16 @@ class Qinit(Qmotif):
     It is a special motif that has no edges and is not an operation.
     """
 
-    def __init__(self, Q, return_object=None, tensors=None, **kwargs) -> None:
+    def __init__(
+        self, Q, state=None, tensors=None, name=None, **kwargs
+    ) -> None:
         if isinstance(Q, Sequence):
             Qinit = Q
         elif type(Q) == int:
             Qinit = [i for i in range(Q)]
-        self.return_object = return_object
+        self.state = state
         self.tensors = tensors
+        self.name = name
         # Initialize graph
         super().__init__(
             Q=Qinit,
@@ -1749,18 +1779,19 @@ class Qinit(Qmotif):
         """
         if self.tensors is not None:
             """
-            If tensors are provided, the return_object is initialized as the tensor product of all the tensors.
+            If tensors are provided, the state is initialized as the tensor product of all the tensors.
             """
-            # dimensions = [len(self.tensors[0])]
-            # return_object = self.tensors[0]
-            # for tensor in self.tensors[1:]:
-            #     return_object = np.array(np.kron(return_object, tensor))
-            #     dimensions += [len(tensor)]
-            # self.dimensions = dimensions
-            # self.return_object = return_object.reshape(dimensions)
 
-            self.return_object = self.tensors
-            self.dimensions = list(self.tensors.shape)
+            # self.return_object = self.tensors
+            # self.dimensions = list(self.tensors.shape)
+
+            dimensions = [len(self.tensors[0])]
+            state = self.tensors[0]
+            for tensor in self.tensors[1:]:
+                state = np.array(np.kron(state, tensor))
+                dimensions += [len(tensor)]
+            self.dimensions = dimensions
+            self.state = state.reshape(dimensions)
 
         self.set_Q(Q)
         self.set_Qavail(Q)
