@@ -291,7 +291,7 @@ class Qmotif:
                     n_symbols=self.mapping.n_symbols,
                     arity=len(self.mapping.tail.Q),
                     symbols=new_symbols,
-                    name=self.mapping.tail.name, # Qinit contains name
+                    name=self.mapping.tail.name,  # Qinit contains name
                 )
                 new_mapping.function = self.mapping.get_unitary_function()
                 self.mapping = new_mapping
@@ -808,10 +808,34 @@ class Qsplit(Qmotif):
             steps = [steps] * 3
         if isinstance(offsets, int):
             offsets = [offsets] * 3
-        # Set attributes
 
+        is_default_mapping = True if mapping is None else False
+        # Initialize Qmotif
+        super().__init__(is_default_mapping=is_default_mapping, type=type, **kwargs)
+
+        # Set attributes
         self.global_pattern = global_pattern
-        self.merge_within = merge_within
+        # self.merge_within = merge_within
+        ####
+        # Check if merge_within after wild card population contains at least one 1, if not try to remove a zero
+        count = 0
+        max_it = 4
+        tmp = merge_within
+        while (
+            self.wildcard_populate(tmp, self.arity).count("1") == 0 and count < max_it
+        ):
+            # drop one zero from merge_within
+            tmp = tmp.replace("0", "", 1)
+            count += 1
+        self.merge_within = self.wildcard_populate(tmp, self.arity)
+
+        # if number of ones in merge_within == 0 raise exception
+        if self.merge_within.count("1") == 0:
+            raise Exception(
+                f"Merge within pattern ({merge_within}->{self.wildcard_populate(merge_within, self.arity)}) must contain at least one 1"
+            )
+        ####
+
         self.merge_between = merge_between
         self.mask = mask
         self.strides = strides
@@ -819,9 +843,6 @@ class Qsplit(Qmotif):
         self.offsets = offsets
         self.boundaries = boundaries
         mapping = kwargs.get("mapping", None)
-        is_default_mapping = True if mapping is None else False
-        # Initialize Qmotif
-        super().__init__(is_default_mapping=is_default_mapping, type=type, **kwargs)
 
     def __call__(self, Q, E=[], remaining_q=None, is_operation=True, **kwargs):
         updated_self = super().__call__(
@@ -968,18 +989,16 @@ class Qsplit(Qmotif):
         elif pattern == "inside":
             # 0 1 2 3 4 5 6 7
             #     x x x x
-            pattern_fn = (
-                lambda arr: arr[
-                    len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1
-                ]
+            pattern_fn = lambda arr: (
+                arr[len(arr) // 2 - len(arr) // 4 : len(arr) // 2 + len(arr) // 4 : 1]
                 if len(arr) > 2
                 else [arr[1]]
             )  # inside
         elif pattern == "outside":
             # 0 1 2 3 4 5 6 7
             # x x         x x
-            pattern_fn = (
-                lambda arr: [
+            pattern_fn = lambda arr: (
+                [
                     item
                     for item in arr
                     if not (
@@ -1075,10 +1094,8 @@ class Qmask(Qsplit):
             elif not (self.mapping is None):
                 # there is a operation associated with the motif
                 is_operation = True
-                # Populate merge pattern
-                merge_within_pop = self.wildcard_populate(self.merge_within, self.arity)
                 # Count the number of 1s in the merge pattern
-                arity_m = merge_within_pop.count("1")
+                arity_m = self.merge_within.count("1")
                 arity_r = self.arity - arity_m
                 # Generate edges for measured split
                 E_m = self.cycle(
@@ -1113,7 +1130,7 @@ class Qmask(Qsplit):
                         boundary=self.boundaries[2],
                     )
                     # Merge the two splits based on merge pattern
-                    Ep_l = self.merge_within_splits(E_b, merge_within_pop)
+                    Ep_l = self.merge_within_splits(E_b, self.merge_within)
                 else:
                     # Do nothing if Em or Er was empty
                     remaining_q = Qp_l
@@ -1246,10 +1263,12 @@ class Qpivot(Qsplit):
         arity_p = self.merge_within.count("1")
         arity_r = self.arity - arity_p
 
+        # if the number of 1's in the global_pattern is less than the arity replace "1" with "1"*arity_p
+        if self.global_pattern.count("1") < arity_p:
+            self.global_pattern = self.global_pattern.replace("1", "1" * arity_p)
+
         # Get global pattern function based on the pattern attribute
-        self.pivot_pattern_fn = self.get_pattern_fn(
-            self.global_pattern.replace("1", "1" * arity_p), len(Qp_l)
-        )
+        self.pivot_pattern_fn = self.get_pattern_fn(self.global_pattern, len(Qp_l))
         pivot_q = [
             p
             for i in range((len(self.pivot_pattern_fn(Qp_l)) + arity_p - 1) // arity_p)
@@ -1313,8 +1332,7 @@ class Qpivot(Qsplit):
                 E_b = [(e[1], e[0]) for e in E_b]
 
                 # Merge the two splits based on merge pattern
-                merge_within_pop = self.wildcard_populate(self.merge_within, self.arity)
-                Ep_l = self.merge_within_splits(E_b, merge_within_pop)
+                Ep_l = self.merge_within_splits(E_b, self.merge_within)
             else:
                 Ep_l = []
         else:
@@ -1536,9 +1554,7 @@ class Qhierarchy:
                             "get_circuit_from_string", None
                         )
                         unitary = get_circuit_from_string(unitary)
-                    state = unitary.function(
-                        unitary.edge, unitary.symbols, **kwargs
-                    )
+                    state = unitary.function(unitary.edge, unitary.symbols, **kwargs)
                     if kwargs.get("state", None) is not None:
                         kwargs["state"] = state
             return state
@@ -1690,9 +1706,7 @@ class Qinit(Qmotif):
     It is a special motif that has no edges and is not an operation.
     """
 
-    def __init__(
-        self, Q, state=None, tensors=None, name=None, **kwargs
-    ) -> None:
+    def __init__(self, Q, state=None, tensors=None, name=None, **kwargs) -> None:
         if isinstance(Q, Sequence):
             Qinit = Q
         elif type(Q) == int:
