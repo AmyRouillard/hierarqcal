@@ -809,6 +809,7 @@ class Qsplit(Qmotif):
         if isinstance(offsets, int):
             offsets = [offsets] * 3
 
+        mapping = kwargs.get("mapping", None)
         is_default_mapping = True if mapping is None else False
         # Initialize Qmotif
         super().__init__(is_default_mapping=is_default_mapping, type=type, **kwargs)
@@ -835,14 +836,12 @@ class Qsplit(Qmotif):
                 f"Merge within pattern ({merge_within}->{self.wildcard_populate(merge_within, self.arity)}) must contain at least one 1"
             )
         ####
-
         self.merge_between = merge_between
         self.mask = mask
         self.strides = strides
         self.steps = steps
         self.offsets = offsets
         self.boundaries = boundaries
-        mapping = kwargs.get("mapping", None)
 
     def __call__(self, Q, E=[], remaining_q=None, is_operation=True, **kwargs):
         updated_self = super().__call__(
