@@ -1258,8 +1258,26 @@ class Qpivot(Qsplit):
         if self.mapping is None:
             raise Exception("Pivot must have a mapping")
 
+        #### Redundant!!??? why is this not fixed at split?
+        # Check if merge_within after wild card population contains at least one 1, if not try to remove a zero
+        count = 0
+        max_it = 4
+        tmp = self.merge_within
+        while (
+            self.wildcard_populate(tmp, self.arity).count("1") == 0 and count < max_it
+        ):
+            # drop one zero from merge_within
+            tmp = tmp.replace("0", "", 1)
+            count += 1
+        self.merge_within = self.wildcard_populate(tmp, self.arity)
+        #### Redundant!!???
+
         # Count the number of 1s in the merge pattern
         arity_p = self.merge_within.count("1")
+        if arity_p == 0:
+            raise Exception(
+                f"Merge within pattern ({self.merge_within}->{self.wildcard_populate(self.merge_within, self.arity)}) must contain at least one 1"
+            )
         arity_r = self.arity - arity_p
 
         # if the number of 1's in the global_pattern is less than the arity replace "1" with "1"*arity_p
