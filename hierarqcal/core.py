@@ -816,25 +816,25 @@ class Qsplit(Qmotif):
 
         # Set attributes
         self.global_pattern = global_pattern
-        # self.merge_within = merge_within
+        self.merge_within = merge_within
         ####
-        # Check if merge_within after wild card population contains at least one 1, if not try to remove a zero
-        count = 0
-        max_it = 4
-        tmp = merge_within
-        while (
-            self.wildcard_populate(tmp, self.arity).count("1") == 0 and count < max_it
-        ):
-            # drop one zero from merge_within
-            tmp = tmp.replace("0", "", 1)
-            count += 1
-        self.merge_within = self.wildcard_populate(tmp, self.arity)
+        # # Check if merge_within after wild card population contains at least one 1, if not try to remove a zero
+        # count = 0
+        # max_it = 4
+        # tmp = merge_within
+        # while (
+        #     self.wildcard_populate(tmp, self.arity).count("1") == 0 and count < max_it
+        # ):
+        #     # drop one zero from merge_within
+        #     tmp = tmp.replace("0", "", 1)
+        #     count += 1
+        # self.merge_within = self.wildcard_populate(tmp, self.arity)
 
-        # if number of ones in merge_within == 0 raise exception
-        if self.merge_within.count("1") == 0:
-            raise Exception(
-                f"Merge within pattern ({merge_within}->{self.wildcard_populate(merge_within, self.arity)}) must contain at least one 1"
-            )
+        # # if number of ones in merge_within == 0 raise exception
+        # if self.merge_within.count("1") == 0:
+        #     raise Exception(
+        #         f"Merge within pattern ({merge_within}->{self.wildcard_populate(merge_within, self.arity)}) must contain at least one 1"
+        #     )
         ####
         self.merge_between = merge_between
         self.mask = mask
@@ -1080,6 +1080,21 @@ class Qmask(Qsplit):
         # Defaults for when nothing happens (this gets changed if conditions are met, i.e. there are qubits to mask etc)
         Ep_l = []
         remaining_q = Qp_l
+
+        ####
+        # Check if merge_within after wild card population contains at least one 1, if not try to remove a zero
+        count = 0
+        max_it = 4
+        tmp = self.merge_within
+        while (
+            self.wildcard_populate(tmp, self.arity).count("1") == 0 and count < max_it
+        ):
+            # drop one zero from merge_within
+            tmp = tmp.replace("0", "", 1)
+            count += 1
+        self.merge_within = self.wildcard_populate(tmp, self.arity)
+        ####
+
         # If there are qubits to mask
         if len(Qp_l) > 1:
             # Get global pattern function based on the pattern attribute
@@ -1258,7 +1273,7 @@ class Qpivot(Qsplit):
         if self.mapping is None:
             raise Exception("Pivot must have a mapping")
 
-        #### Redundant!!??? why is this not fixed at split?
+        #### !!??? why is this not fixed at split?
         # Check if merge_within after wild card population contains at least one 1, if not try to remove a zero
         count = 0
         max_it = 4
@@ -1270,7 +1285,7 @@ class Qpivot(Qsplit):
             tmp = tmp.replace("0", "", 1)
             count += 1
         self.merge_within = self.wildcard_populate(tmp, self.arity)
-        #### Redundant!!???
+        #### !!???
 
         # Count the number of 1s in the merge pattern
         arity_p = self.merge_within.count("1")
