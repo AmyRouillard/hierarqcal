@@ -716,7 +716,7 @@ class Qcycle(Qmotif):
             step=self.step,
             offset=self.offset,
             boundary=self.boundary,
-            arity=self.arity,
+            arity=self.arity if self.arity > 0 else len(Qc_l),
         )
         updated_self = super().__call__(Qc_l, E=E, **kwargs)
         return updated_self
@@ -1278,22 +1278,22 @@ class Qpivot(Qsplit):
         count = 0
         max_it = 4
         tmp = self.merge_within
-        while (
-            self.wildcard_populate(tmp, self.arity).count("1") == 0 and count < max_it
-        ):
+        arity = self.arity if self.arity > 0 else len(Qp_l)
+
+        while self.wildcard_populate(tmp, arity).count("1") == 0 and count < max_it:
             # drop one zero from merge_within
             tmp = tmp.replace("0", "", 1)
             count += 1
-        self.merge_within = self.wildcard_populate(tmp, self.arity)
+        self.merge_within = self.wildcard_populate(tmp, arity)
         #### !!???
 
         # Count the number of 1s in the merge pattern
         arity_p = self.merge_within.count("1")
         if arity_p == 0:
             raise Exception(
-                f"Merge within pattern ({self.merge_within}->{self.wildcard_populate(self.merge_within, self.arity)}) must contain at least one 1"
+                f"Merge within pattern ({self.merge_within}->{self.wildcard_populate(self.merge_within, arity)}) must contain at least one 1"
             )
-        arity_r = self.arity - arity_p
+        arity_r = arity - arity_p
 
         # if the number of 1's in the global_pattern is less than the arity replace "1" with "1"*arity_p
         if self.global_pattern.count("1") < arity_p:
